@@ -5,10 +5,11 @@ import prismadb from "@/lib/prismadb";
 
 
 export async function POST(req: Request,
-    { params }: { params: { storeId: string}}
+    { params }: { params: Promise<{ storeId: string}>}
 ) {
 
     try {
+        const {storeId} = await params;
         const { userId } = await auth();
         const body = await req.json();
 
@@ -44,50 +45,85 @@ export async function POST(req: Request,
         if (!sizeId) {
             return NextResponse.json({ message: "Size id is required" }, { status: 400 });
         }
-        if(!params.storeId){
+        if(!storeId){
             return NextResponse.json({ message: "Store id is required" }, { status: 400 });
         }
         const storeByUserId = await prismadb.store.findFirst({
             where: {
-                id: params.storeId,
+                id: storeId,
                 userId
             }
         })
         if(!storeByUserId){
            return new NextResponse("Unauthorized",{status : 403});
         }
-        const billboard = await prismadb.billboard.create({
+        const product = await prismadb.product.create({
             data: {
-                label,
-                imageUrl,
-                storeId: params.storeId
+                name,
+                price,
+                isFeatured,
+                isArchived,
+                categoryId,
+                colorId,
+                sizeId,
+                storeId: storeId,
+                images:{
+                    createMany:{
+                        data: [
+                            ...images.map((image:{url: string}) => image)
+                        ]
+                    }
+
+                }
             }
         });
 
-        return NextResponse.json(billboard);
+        return NextResponse.json(product);
     } catch (error) {
-        console.error(["BILLBOARDS_POST"], error);
+        console.error(["PRODUCTS_POST"], error);
         return NextResponse.json({ message: "Internal error" }, { status: 500 });
     }
 }
 
-export async function GET(req: Request,
-    { params }: { params: { storeId: string}}
+export async function GET(
+    req: Request,
+    { params }: { params: Promise<{ storeId: string}>}
 ) {
-
+    
     try {
-        if(!params.storeId){
+        const {storeId} = await params;
+        const {searchParams} = new URL(req.url);
+        const  categoryId = searchParams.get("categoryId") || undefined;
+        const  colorId = searchParams.get("colorId") || undefined;
+        const  sizeId = searchParams.get("sizeId") || undefined;
+        const  isFeatured = searchParams.get("isFeatured");
+
+        if(!storeId){
             return NextResponse.json({ message: "Store id is required" }, { status: 400 });
         }
-        const billboards = await prismadb.billboard.findMany({
+        const products = await prismadb.product.findMany({
             where: {
-                storeId: params.storeId
+                storeId: storeId,
+                categoryId,
+                colorId,
+                sizeId,
+                isFeatured: isFeatured ? true : undefined,
+                isArchived: false
             },
+            include:{
+                images: true,
+                category:true,
+                color: true,
+                size: true
+            },
+            orderBy:{
+                createdAt: 'desc'
+            }
         });
 
-        return NextResponse.json(billboards);
+        return NextResponse.json(products);
     } catch (error) {
-        console.error(["BILLBOARDS_GET"], error);
+        console.error(["PRODUCTS_GET"], error);
         return NextResponse.json({ message: "Internal error" }, { status: 500 });
     }
 }

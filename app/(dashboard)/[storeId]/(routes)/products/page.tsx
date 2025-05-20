@@ -9,11 +9,12 @@ import { ProductColumn } from "./components/columns";
 const ProductsPage = async ({
     params
 }: {
-    params:{storeId: string}
+    params:Promise<{storeId: string}>
 }) => {
+    const {storeId} = await params
     const products = await prismadb.product.findMany({
         where:{
-            storeId:params.storeId
+            storeId:storeId
         },
         include:{
             category:true,
@@ -31,7 +32,7 @@ const ProductsPage = async ({
         isArchived: item.isArchived,
         price: formatter.format(item.price.toNumber()),
         category: item.category.name,
-        size: item.category.name,
+        size: item.size.name,
         color: item.color.value,
         createdAt: format(item.createdAt,"MMMM do, yyyy")
     }));
